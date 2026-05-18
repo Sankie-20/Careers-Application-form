@@ -2,11 +2,14 @@
 # App: https://careers-application-form-g0hja5dthkhfeseu.canadacentral-01.azurewebsites.net
 # Resource group: TheZig-HR-Recruitment-Platform
 #
-# Required GitHub secret:
-#   AZURE_WEBAPP_PUBLISH_PROFILE — Azure Portal → App Service → Deployment Center
-#     → Download publish profile (full XML contents)
+# Auth: Azure login (OIDC) — required GitHub secrets (repo or production environment):
+#   AZURE_CLIENT_ID       — App registration → Application (client) ID
+#   AZURE_TENANT_ID       — Microsoft Entra ID → Tenant ID
+#   AZURE_SUBSCRIPTION_ID — Subscriptions → Subscription ID
 #
-# App Service application settings (configure in Azure, not in this file):
+# One-time Azure setup: see README in repo or GitHub issue comments for federated credential.
+#
+# App Service application settings (Azure Portal, not this file):
 #   PUBLIC_CAREERS_APPLY_PORTAL_URL, CONTEXT_API_BASE_URL, CAREERS_BASE_PATH,
 #   CAREERS_JOB_APPLICATION_WEBHOOK_URL, CAREERS_GENERAL_APPLICATION_WEBHOOK_URL
 
@@ -21,6 +24,10 @@ on:
       - 'careers-apply-portal/**'
       - '.github/workflows/deploy-azure.yml'
   workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 env:
   AZURE_WEBAPP_NAME: careers-application-form-g0hja5dthkhfeseu
@@ -57,11 +64,17 @@ jobs:
             -x "*.log" \
             -x ".git/*"
 
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: deploy-package.zip
 
       - name: Verify health endpoint
