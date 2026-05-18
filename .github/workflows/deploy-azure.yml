@@ -1,0 +1,79 @@
+# Deploy careers-apply-portal to Azure App Service (Linux, Node)
+# App: https://careers-application-form-g0hja5dthkhfeseu.canadacentral-01.azurewebsites.net
+# Resource group: TheZig-HR-Recruitment-Platform
+#
+# Required GitHub secret:
+#   AZURE_WEBAPP_PUBLISH_PROFILE — Azure Portal → App Service → Deployment Center
+#     → Download publish profile (full XML contents)
+#
+# App Service application settings (configure in Azure, not in this file):
+#   PUBLIC_CAREERS_APPLY_PORTAL_URL, CONTEXT_API_BASE_URL, CAREERS_BASE_PATH,
+#   CAREERS_JOB_APPLICATION_WEBHOOK_URL, CAREERS_GENERAL_APPLICATION_WEBHOOK_URL
+
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - 'careers-apply-portal/**'
+      - '.github/workflows/deploy-azure.yml'
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: careers-application-form-g0hja5dthkhfeseu
+  AZURE_RESOURCE_GROUP: TheZig-HR-Recruitment-Platform
+  NODE_VERSION: '22'
+  APP_FOLDER: careers-apply-portal
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.APP_FOLDER }}/package-lock.json
+
+      - name: Install production dependencies
+        working-directory: ${{ env.APP_FOLDER }}
+        run: npm ci --omit=dev
+
+      - name: Create deployment package
+        working-directory: ${{ env.APP_FOLDER }}
+        run: |
+          zip -r ../deploy-package.zip . \
+            -x ".env" \
+            -x ".env.*" \
+            -x "*.log" \
+            -x ".git/*"
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: deploy-package.zip
+
+      - name: Verify health endpoint
+        run: |
+          URL="https://${{ env.AZURE_WEBAPP_NAME }}.canadacentral-01.azurewebsites.net/health"
+          for i in 1 2 3 4 5; do
+            if curl -fsS "$URL" | grep -q '"ok":true'; then
+              echo "Health check passed: $URL"
+              exit 0
+            fi
+            echo "Waiting for app to start (attempt $i/5)..."
+            sleep 15
+          done
+          echo "Health check failed after deploy"
+          exit 1
