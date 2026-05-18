@@ -1,5 +1,6 @@
 # Deploy careers-apply-portal to Azure App Service (Linux, Node)
-# App: https://careers-application-form-g0hja5dthkhfeseu.canadacentral-01.azurewebsites.net
+# App resource: Careers-Application-Form
+# Public URL: https://careers-application-form-g0hja5dthkhfeseu.canadacentral-01.azurewebsites.net
 # Resource group: TheZig-HR-Recruitment-Platform
 #
 # Auth: Azure login (OIDC) — required GitHub secrets (repo or production environment):
@@ -30,7 +31,8 @@ permissions:
   contents: read
 
 env:
-  AZURE_WEBAPP_NAME: careers-application-form-g0hja5dthkhfeseu
+  AZURE_WEBAPP_NAME: Careers-Application-Form
+  AZURE_WEBAPP_HOSTNAME: careers-application-form-g0hja5dthkhfeseu.canadacentral-01.azurewebsites.net
   AZURE_RESOURCE_GROUP: TheZig-HR-Recruitment-Platform
   NODE_VERSION: '22'
   APP_FOLDER: careers-apply-portal
@@ -79,7 +81,7 @@ jobs:
 
       - name: Verify health endpoint
         run: |
-          URL="https://${{ env.AZURE_WEBAPP_NAME }}.canadacentral-01.azurewebsites.net/health"
+          URL="https://${{ env.AZURE_WEBAPP_HOSTNAME }}/health"
           for i in 1 2 3 4 5; do
             if curl -fsS "$URL" | grep -q '"ok":true'; then
               echo "Health check passed: $URL"
